@@ -22,8 +22,9 @@ Arabic, Chinese (Simplified & Traditional), English, French, Hindi, Korean, Span
 
 **To add your own words:**
 1. Go to **Manage Words**
-2. Enter words manually, or import a CSV with columns: `word`, `category`, `sentences`, `language`
+2. Enter words manually, including their language, or import a CSV with headers: `word`, `category`, `sentences`, `language`
 3. Separate multiple sentences in the `sentences` column with `|`.
+4. On the Practice page, choose a language or **All languages**, then choose a category.
 
 
 ### Running a Local Live Server

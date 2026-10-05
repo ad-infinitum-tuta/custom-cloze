@@ -137,6 +137,13 @@ async function handleSave() {
     return;
   }
 
+  const language = document.getElementById("language-input").value.trim();
+  if (!language) {
+    statusEl.className = "error";
+    statusEl.textContent = "Please enter a language.";
+    return;
+  }
+
   let gramCat;
   const useCustom = document.getElementById("custom-cat-toggle").checked;
   if (useCustom) {
@@ -160,7 +167,7 @@ async function handleSave() {
     return;
   }
 
-  await db.saveWord({ word, gramCat, sentences });
+  await db.saveWord({ word, gramCat, language, sentences });
 
   statusEl.textContent = `"${word}" saved successfully.`;
 
@@ -194,14 +201,15 @@ function handleCsvFile(file) {
       for (const row of result.data) {
         const word     = (row.word     || "").trim();
         const category = (row.category || "").trim();
+        const language = (row.language || "").trim();
         const rawSentences = (row.sentences || "").trim();
 
-        if (!word || !category) { errors++; continue; }
+        if (!word || !category || !language) { errors++; continue; }
 
         const sentences = rawSentences.split("|").map(s => s.trim()).filter(s => s.length > 0);
         if (sentences.length === 0) { errors++; continue; }
 
-        await db.saveWord({ word, gramCat: category, sentences });
+        await db.saveWord({ word, gramCat: category, language, sentences });
         imported++;
       }
 
@@ -233,7 +241,12 @@ async function renderSampleButtons() {
       const parsed = Papa.parse(text, { header: false, skipEmptyLines: true });
       csvWords = parsed.data
         .filter(r => r[0] && r[1])
-        .map(r => ({ word: r[0].trim(), gramCat: r[1].trim(), rawSentences: r[2] || "" }));
+        .map(r => ({
+          word: r[0].trim(),
+          gramCat: r[1].trim(),
+          rawSentences: r[2] || "",
+          language: (r[3] || "").trim(),
+        }));
     } catch {
       const btn = document.createElement("button");
       btn.textContent = `⚠️ Failed to load ${label}`;
@@ -242,16 +255,22 @@ async function renderSampleButtons() {
       continue;
     }
 
-    // Count how many DB words match any CSV entry (word + gramCat + first sentence)
+    // Count how many DB words match any CSV entry, including language.
     // Including the first sentence prevents false matches for words that are
     // spelled identically across languages (e.g. "bien", "venir" in Spanish/French).
     const csvPairs = new Set(csvWords.map(w => {
+      const firstSentence = w.rawSentences.split("|")[0].trim();
+      return `${w.word}|${w.gramCat}|${w.language}|${firstSentence}`;
+    }));
+    const legacyCsvPairs = new Set(csvWords.map(w => {
       const firstSentence = w.rawSentences.split("|")[0].trim();
       return `${w.word}|${w.gramCat}|${firstSentence}`;
     }));
     const matchingDbWords = allDbWords.filter(w => {
       const firstSentence = (w.sentences[0] || "").trim();
-      return csvPairs.has(`${w.word}|${w.gramCat}|${firstSentence}`);
+      return csvPairs.has(`${w.word}|${w.gramCat}|${w.language}|${firstSentence}`) ||
+        (w.language === "Unspecified" &&
+          legacyCsvPairs.has(`${w.word}|${w.gramCat}|${firstSentence}`));
     });
     const count = matchingDbWords.length;
 
@@ -275,10 +294,10 @@ async function renderSampleButtons() {
       btn.textContent = `🌐 ${label}`;
       btn.dataset.action = "import";
       btn.addEventListener("click", async () => {
-        for (const { word, gramCat, rawSentences } of csvWords) {
+        for (const { word, gramCat, rawSentences, language } of csvWords) {
           const sentences = rawSentences.split("|").map(s => s.trim()).filter(s => s.length > 0);
-          if (sentences.length > 0) {
-            await db.saveWord({ word, gramCat, sentences });
+          if (sentences.length > 0 && language) {
+            await db.saveWord({ word, gramCat, language, sentences });
           }
         }
         await refreshGramcatSelect();
@@ -321,6 +340,10 @@ async function renderSavedWords() {
     catSpan.className = "gramcat-badge";
     catSpan.textContent = word.gramCat;
 
+    const languageSpan = document.createElement("span");
+    languageSpan.className = "language-badge";
+    languageSpan.textContent = word.language || "Unspecified";
+
     const countSpan = document.createElement("span");
     countSpan.className = "sentence-count";
     countSpan.textContent = `${word.sentences.length} sentence(s)`;
@@ -337,7 +360,7 @@ async function renderSavedWords() {
       notifyDbUpdated();
     });
 
-    row.append(wordSpan, catSpan, countSpan, delBtn);
+    row.append(wordSpan, languageSpan, catSpan, countSpan, delBtn);
     listEl.appendChild(row);
   }
 }

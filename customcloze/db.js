@@ -6,6 +6,12 @@ db.version(1).stores({
   words:   "++id, word, gramCat",
   history: "++id, wordId, sentenceHash"
 });
+db.version(2).stores({
+  words:   "++id, word, gramCat, language",
+  history: "++id, wordId, sentenceHash"
+}).upgrade(tx => tx.table("words").toCollection().modify(word => {
+  if (!word.language) word.language = "Unspecified";
+}));
 
 /**
  * Compute the stable hash used to identify a sentence in the history table.
@@ -18,31 +24,52 @@ function computeHash(wordId, sentenceText) {
 }
 
 /**
- * Return all words. If gramCat is provided, filter to that category only.
+ * Return words, optionally filtered by category and language.
  * @param {string|null} gramCat
+ * @param {string|null} language
  * @returns {Promise<Array>}
  */
-export async function getWords(gramCat = null) {
-  if (gramCat) return db.words.where("gramCat").equals(gramCat).toArray();
-  return db.words.toArray();
+export async function getWords(gramCat = null, language = null) {
+  let words;
+  if (gramCat) {
+    words = await db.words.where("gramCat").equals(gramCat).toArray();
+  } else if (language) {
+    words = await db.words.where("language").equals(language).toArray();
+  } else {
+    words = await db.words.toArray();
+  }
+  return language && gramCat
+    ? words.filter(word => word.language === language)
+    : words;
 }
 
 /**
- * Return sorted list of all distinct gramCat values currently in the DB.
+ * Return sorted list of distinct categories, optionally filtered by language.
  * @returns {Promise<string[]>}
  */
-export async function getCategories() {
-  const words = await db.words.toArray();
+export async function getCategories(language = null) {
+  const words = language
+    ? await db.words.where("language").equals(language).toArray()
+    : await db.words.toArray();
   return [...new Set(words.map(w => w.gramCat))].sort();
 }
 
 /**
+ * Return sorted list of distinct languages currently in the DB.
+ * @returns {Promise<string[]>}
+ */
+export async function getLanguages() {
+  const words = await db.words.toArray();
+  return [...new Set(words.map(w => w.language).filter(Boolean))].sort();
+}
+
+/**
  * Add a new word. sentences must be an array of strings.
- * @param {{word: string, gramCat: string, sentences: string[]}} param0
+ * @param {{word: string, gramCat: string, language: string, sentences: string[]}} param0
  * @returns {Promise<number>} new word id
  */
-export async function saveWord({ word, gramCat, sentences }) {
-  return db.words.add({ word, gramCat, sentences });
+export async function saveWord({ word, gramCat, language, sentences }) {
+  return db.words.add({ word, gramCat, language, sentences });
 }
 
 /**

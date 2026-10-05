@@ -262,6 +262,7 @@ button:not(:disabled):hover {
   margin-bottom: 4px;
 }
 
+#language-select,
 #cat-select {
   display: block;
   width: 100%;
@@ -451,6 +452,7 @@ button:not(:disabled):hover {
 
 .word-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   background: #ffffff;
@@ -464,13 +466,19 @@ button:not(:disabled):hover {
   flex: 1;
 }
 
-.gramcat-badge {
+.gramcat-badge,
+.language-badge {
   background: #e0e7ff;
   color: #3730a3;
   border-radius: 4px;
   padding: 2px 8px;
   font-size: 0.8rem;
   white-space: nowrap;
+}
+
+.language-badge {
+  background: #dcfce7;
+  color: #166534;
 }
 
 .sentence-count {

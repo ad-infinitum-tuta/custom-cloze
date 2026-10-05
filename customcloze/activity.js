@@ -18,7 +18,9 @@ export async function initActivity() {
   document.getElementById("back-btn-active").addEventListener("click", resetToIdle);
   document.getElementById("check-btn").addEventListener("click", checkAnswers);
   document.getElementById("back-btn-graded").addEventListener("click", resetToIdle);
-  document.getElementById("next-btn").addEventListener("click", () => startSession(currentSession?.gramCat));
+  document.getElementById("next-btn").addEventListener("click", () =>
+    startSession(currentSession?.gramCat, currentSession?.language));
+  document.getElementById("language-select").addEventListener("change", renderIdle);
 
   // "Go to manage" link inside no-words-msg
   document.getElementById("go-manage-link").addEventListener("click", (e) => {
@@ -49,12 +51,38 @@ export async function initActivity() {
 // ---------------------------------------------------------------------------
 
 async function renderIdle() {
-  const categories = await db.getCategories();
+  const languageSelect = document.getElementById("language-select");
   const catSelect = document.getElementById("cat-select");
   const startBtn  = document.getElementById("start-btn");
   const noWordsMsg = document.getElementById("no-words-msg");
+  const selectedLanguage = languageSelect.value;
+  const selectedCategory = catSelect.value;
+  const languages = await db.getLanguages();
+
+  languageSelect.innerHTML = "";
+  const allLanguagesOption = document.createElement("option");
+  allLanguagesOption.value = "";
+  allLanguagesOption.textContent = "All languages";
+  languageSelect.appendChild(allLanguagesOption);
+  for (const language of languages) {
+    const option = document.createElement("option");
+    option.value = language;
+    option.textContent = language;
+    languageSelect.appendChild(option);
+  }
+  if (languages.includes(selectedLanguage)) languageSelect.value = selectedLanguage;
+
+  const categories = await db.getCategories(languageSelect.value || null);
 
   catSelect.innerHTML = "";
+  for (const cat of categories) {
+    const opt = document.createElement("option");
+    opt.value = cat;
+    opt.textContent = cat;
+    catSelect.appendChild(opt);
+  }
+  if (categories.includes(selectedCategory)) catSelect.value = selectedCategory;
+
   if (categories.length === 0) {
     catSelect.style.display = "none";
     startBtn.style.display  = "none";
@@ -63,12 +91,6 @@ async function renderIdle() {
     catSelect.style.display  = "";
     startBtn.style.display   = "";
     noWordsMsg.style.display = "none";
-    for (const cat of categories) {
-      const opt = document.createElement("option");
-      opt.value = cat;
-      opt.textContent = cat;
-      catSelect.appendChild(opt);
-    }
   }
 
   document.body.className = "phase-idle";
@@ -78,13 +100,16 @@ async function renderIdle() {
 // Start session
 // ---------------------------------------------------------------------------
 
-async function startSession(gramCat) {
-  if (!gramCat) {
+async function startSession(gramCat = null, language = null) {
+  if (gramCat === null) {
     gramCat = document.getElementById("cat-select").value;
+  }
+  if (language === null) {
+    language = document.getElementById("language-select").value;
   }
   if (!gramCat) return;
 
-  const result = await selectSentences(gramCat);
+  const result = await selectSentences(gramCat, language || null);
 
   if (!result) {
     document.getElementById("no-words-msg").style.display = "block";
@@ -96,7 +121,7 @@ async function startSession(gramCat) {
   // Build blanks array — one entry per blank across all sentences, in display order
   const blanks = sessionWords.map((sw, sentenceIndex) => ({ sentenceIndex, chipId: null }));
 
-  currentSession = { gramCat, sessionWords, wordBank, blanks };
+  currentSession = { gramCat, language, sessionWords, wordBank, blanks };
   renderActivePhase();
   saveSession();
 }

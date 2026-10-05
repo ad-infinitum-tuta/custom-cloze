@@ -60,16 +60,17 @@ function shuffle(arr) {
 // ---------------------------------------------------------------------------
 
 /**
- * Select up to 5 sentences from the given category and build the word bank.
+ * Select up to 5 sentences from the given category and language and build the word bank.
  *
  * @param {string} gramCat
+ * @param {string|null} language
  * @returns {Promise<{sessionWords: SessionWord[], wordBank: BankChip[]}|null>}
  *
  * SessionWord: { wordId, sentenceHash, parts }
  * BankChip:    { id, text, isDistractor }
  */
-export async function selectSentences(gramCat) {
-  const allWords = await getWords(gramCat);
+export async function selectSentences(gramCat, language = null) {
+  const allWords = await getWords(gramCat, language);
 
   // -------------------------------------------------------------------------
   // Step 1 — Bucket each word
